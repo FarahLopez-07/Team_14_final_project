@@ -1,6 +1,6 @@
 # Project Title
 
-[One-sentence summary of your project](flow A - cell counter/fluorescence analyzer
+[One-sentence summary of your project] => (flow A - cell counter/fluorescence analyzer)
 
 ## Biomedical Context
 
