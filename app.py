@@ -11,193 +11,246 @@ st.write(
     """
 Upload **one fluorescence image** for each stain:
 
-- **Blue** (DAPI, nuclei)
+- **Blue** (DAPI nuclei)
 - **Green** (live cells)
 - **Red** (dead cells)
 
-Use the sliders to adjust intensity thresholds and minimum cell size.
-The app will count objects and estimate live/dead percentages.
+App features:
+- Automatic **scale-bar removal**
+- Threshold recommendations
+- Per-stain threshold and minimum pixel size
+- Live/dead calculation
+- Segmentation preview
+- Sidebar **history** of previous runs
 """
 )
 
+# ------------------ SESSION HISTORY ------------------
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
+
+# ------------------ UTILITIES ------------------
 def load_image(uploaded_file):
-    """Load an image from a Streamlit UploadedFile and return as RGB numpy array."""
     img = Image.open(uploaded_file)
     img = img.convert("RGB")
     return np.array(img)
 
+
+def remove_scale_bar(rgb):
+    """
+    Detect and remove a bright scale bar typically located at the bottom.
+    Removes the largest bright rectangular object in the lower 20% of the image.
+    """
+    h, w, _ = rgb.shape
+    bottom_region = rgb[int(h * 0.8):, :]  # bottom 20%
+    gray = cv2.cvtColor(bottom_region, cv2.COLOR_RGB2GRAY)
+
+    # Threshold to find bright objects
+    _, mask = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+
+    # Find contours
+    cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(cnts) == 0:
+        return rgb, None  # nothing removed
+
+    # Pick largest contour = scale bar
+    cnt = max(cnts, key=cv2.contourArea)
+    x, y, w2, h2 = cv2.boundingRect(cnt)
+
+    # Create a copy to remove scale bar
+    clean = rgb.copy()
+    clean[int(h * 0.8) + y : int(h * 0.8) + y + h2, x : x + w2] = 0  # black region
+
+    return clean, (x, int(h * 0.8) + y, w2, h2)
+
+
 def count_cells_from_gray(gray_img, threshold, min_area):
-    """
-    Threshold a grayscale image and count connected components
-    above a given minimum area.
-    """
-    # Ensure uint8
+    """Threshold grayscale image and count connected components > min_area."""
     if gray_img.dtype != np.uint8:
         gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX).astype(
             np.uint8
         )
 
-    # Binary threshold
     _, bin_mask = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
-
-    # Connected components
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
         bin_mask, connectivity=8
     )
 
-    # Skip background (label 0), filter by min_area
     areas = stats[1:, cv2.CC_STAT_AREA]
     count = int(np.sum(areas >= min_area))
 
     return count, bin_mask
 
+
+def recommend_threshold(gray_img):
+    """Use Otsu thresholding for recommending threshold."""
+    if gray_img.dtype != np.uint8:
+        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    otsu_val, _ = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    if otsu_val < 60:
+        condition = "Very clean background"
+    elif otsu_val < 100:
+        condition = "Clean background"
+    elif otsu_val < 140:
+        condition = "Slightly noisy background"
+    else:
+        condition = "Bright / uneven background"
+
+    return int(otsu_val), condition
+
+
 def process_single_channel(file, threshold, min_area, channel_name):
-    """
-    Process a single UploadedFile for a given channel.
-    Returns:
-      count: int
-      row: dict (for table)
-      preview: (filename, original_rgb, binary_mask)
-    """
     if file is None:
-        return 0, None, None
+        return 0, None, None, None, None
 
     rgb = load_image(file)
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+
+    # ---- Remove scale bar ----
+    clean_rgb, scale_bar_box = remove_scale_bar(rgb)
+
+    gray = cv2.cvtColor(clean_rgb, cv2.COLOR_RGB2GRAY)
 
     count, bin_mask = count_cells_from_gray(gray, threshold, min_area)
 
-    row = {
-        "channel": channel_name,
-        "filename": file.name,
-        "count": count,
-    }
-    preview = (file.name, rgb, bin_mask)
+    row = {"channel": channel_name, "filename": file.name, "count": count}
 
+    preview = (file.name, rgb, clean_rgb, bin_mask, scale_bar_box)
     return count, row, preview
 
-# --- UI: file uploaders ---
-st.header("1. Upload one image per stain")
 
+# ------------------ UPLOAD UI ------------------
+st.header("1. Upload images")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    blue_file = st.file_uploader(
-        "Blue / DAPI nuclei image",
-        type=["png", "jpg", "jpeg", "tif", "tiff"],
-        help="Upload ONE image with DAPI-stained nuclei (blue).",
-    )
+    blue_file = st.file_uploader("Blue / DAPI nuclei", type=["png", "jpg", "jpeg", "tif", "tiff"])
+    if blue_file:
+        img = load_image(blue_file)
+        rec, cond = recommend_threshold(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        st.caption(f"{cond} — recommended threshold ≈ {rec}")
 
 with col2:
-    green_file = st.file_uploader(
-        "Green (live cells) image",
-        type=["png", "jpg", "jpeg", "tif", "tiff"],
-        help="Upload ONE image with live cells (green).",
-    )
+    green_file = st.file_uploader("Green (live cells)", type=["png", "jpg", "jpeg", "tif", "tiff"])
+    if green_file:
+        img = load_image(green_file)
+        rec, cond = recommend_threshold(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        st.caption(f"{cond} — recommended threshold ≈ {rec}")
 
 with col3:
-    red_file = st.file_uploader(
-        "Red (dead cells) image",
-        type=["png", "jpg", "jpeg", "tif", "tiff"],
-        help="Upload ONE image with dead cells (red).",
-    )
+    red_file = st.file_uploader("Red (dead cells)", type=["png", "jpg", "jpeg", "tif", "tiff"])
+    if red_file:
+        img = load_image(red_file)
+        rec, cond = recommend_threshold(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        st.caption(f"{cond} — recommended threshold ≈ {rec}")
 
-# --- Sidebar: thresholds and size filter ---
+
+# ------------------ SIDEBAR SETTINGS ------------------
 st.sidebar.header("Segmentation parameters")
 
-blue_thresh = st.sidebar.slider("Blue (DAPI) threshold", 0, 255, 80)
-green_thresh = st.sidebar.slider("Green (live) threshold", 0, 255, 80)
-red_thresh = st.sidebar.slider("Red (dead) threshold", 0, 255, 80)
+st.sidebar.subheader("Intensity thresholds")
+blue_thresh = st.sidebar.slider("DAPI threshold", 0, 255, 80)
+green_thresh = st.sidebar.slider("Live cell threshold", 0, 255, 80)
+red_thresh = st.sidebar.slider("Dead cell threshold", 0, 255, 80)
 
-min_area = st.sidebar.slider(
-    "Minimum cell area (pixels)", min_value=10, max_value=2000, value=50, step=10
-)
-st.sidebar.write(
-    "Increase this if the program overcounts tiny specks; decrease if it misses small cells."
-)
+st.sidebar.subheader("Minimum object size (pixels)")
+blue_min_area = st.sidebar.slider("DAPI nuclei min area", 10, 2000, 30)
+green_min_area = st.sidebar.slider("Live cell min area", 10, 5000, 100)
+red_min_area = st.sidebar.slider("Dead cell min area", 10, 5000, 100)
 
 run_button = st.button("2. Run analysis")
 
+
+# ------------------ RUN ANALYSIS ------------------
 if run_button:
-    if blue_file is None and green_file is None and red_file is None:
-        st.warning("Please upload at least one image for any channel.")
+    if not (blue_file and green_file and red_file):
+        st.warning("Upload all 3 images to run analysis.")
     else:
-        # Process each channel
         blue_total, blue_row, blue_preview = process_single_channel(
-            blue_file, blue_thresh, min_area, "DAPI (nuclei)"
+            blue_file, blue_thresh, blue_min_area, "DAPI nuclei"
         )
         green_total, green_row, green_preview = process_single_channel(
-            green_file, green_thresh, min_area, "Live (green)"
+            green_file, green_thresh, green_min_area, "Live cells"
         )
         red_total, red_row, red_preview = process_single_channel(
-            red_file, red_thresh, min_area, "Dead (red)"
+            red_file, red_thresh, red_min_area, "Dead cells"
         )
 
-        rows = []
-        for r in [blue_row, green_row, red_row]:
-            if r is not None:
-                rows.append(r)
+        rows = [r for r in [blue_row, green_row, red_row] if r]
+        df = pd.DataFrame(rows)
 
-        if rows:
-            df = pd.DataFrame(rows)
-            st.subheader("Per-image counts")
-            st.dataframe(df)
+        st.subheader("Per-image counts")
+        st.dataframe(df)
 
-        # Total nuclei = blue if available; otherwise fall back to (green + red)
-        total_nuclei = blue_total if blue_total > 0 else (green_total + red_total)
+        total_nuclei = blue_total if blue_total > 0 else green_total + red_total
+
+        live_pct = 100 * green_total / total_nuclei if total_nuclei else 0
+        dead_pct = 100 * red_total / total_nuclei if total_nuclei else 0
 
         st.subheader("Total counts")
-        col_a, col_b, col_c, col_d = st.columns(4)
-        col_a.metric("DAPI (nuclei)", blue_total)
-        col_b.metric("Live (green)", green_total)
-        col_c.metric("Dead (red)", red_total)
-        col_d.metric("Total nuclei used", total_nuclei)
+        colA, colB, colC, colD = st.columns(4)
+        colA.metric("Nuclei (DAPI)", blue_total)
+        colB.metric("Live cells", green_total)
+        colC.metric("Dead cells", red_total)
+        colD.metric("Total nuclei used", total_nuclei)
 
-        # Live/Dead percentages
-        if total_nuclei > 0:
-            live_pct = 100.0 * green_total / total_nuclei
-            dead_pct = 100.0 * red_total / total_nuclei
+        st.subheader("Live/Dead percentages")
+        col1, col2 = st.columns(2)
+        col1.metric("Live %", f"{live_pct:.2f}%")
+        col2.metric("Dead %", f"{dead_pct:.2f}%")
 
-            st.subheader("Live/Dead percentages")
+        # Add to history
+        st.session_state["history"].insert(
+            0,
+            {
+                "nuclei": total_nuclei,
+                "live": green_total,
+                "dead": red_total,
+                "live_pct": live_pct,
+                "dead_pct": dead_pct,
+            },
+        )
 
-            st.markdown(
-                f"""
-**Definitions**
-
-- Total nuclei: \( N_{{total}} = {total_nuclei} \)  
-- Live cells: \( N_{{live}} = {green_total} \)  
-- Dead cells: \( N_{{dead}} = {red_total} \)  
-
-Percentages:
-- \( \\text{{Live \%}} = 100 \\times N_{{live}} / N_{{total}} = {live_pct:.2f}\\% \)  
-- \( \\text{{Dead \%}} = 100 \\times N_{{dead}} / N_{{total}} = {dead_pct:.2f}\\% \)
-"""
-            )
-
-            col_l, col_d2 = st.columns(2)
-            col_l.metric("Live %", f"{live_pct:.2f}%")
-            col_d2.metric("Dead %", f"{dead_pct:.2f}%")
-        else:
-            st.warning(
-                "Total nuclei count is 0. Adjust thresholds or check that the DAPI image is correctly exposed."
-            )
-
-        # Preview segmentation
-        st.subheader("Segmentation preview (original vs thresholded)")
+        # ------------------ PREVIEW ------------------
+        st.subheader("Segmentation preview")
 
         def show_preview(title, preview):
             if preview is None:
                 return
-            fname, rgb, mask = preview
-            st.markdown(f"**{title} — {fname}**")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.image(rgb, caption="Original image", use_column_width=True)
-            with c2:
-                st.image(mask, caption="Binary mask", use_column_width=True)
+            fname, orig, clean, mask, scale_bar = preview
 
-        show_preview("DAPI (nuclei)", blue_preview)
-        show_preview("Live (green)", green_preview)
-        show_preview("Dead (red)", red_preview)
+            st.markdown(f"### {title} — {fname}")
+
+            col1, col2, col3 = st.columns(3)
+            col1.image(orig, caption="Original image", use_column_width=True)
+            col2.image(clean, caption="Scale-bar removed", use_column_width=True)
+            col3.image(mask, caption="Binary mask", use_column_width=True)
+
+            if scale_bar:
+                x, y, w, h = scale_bar
+                st.caption(f"Scale bar removed at location x={x}, y={y}, size={w}×{h}")
+
+        show_preview("DAPI nuclei", blue_preview)
+        show_preview("Live cells", green_preview)
+        show_preview("Dead cells", red_preview)
+
 else:
-    st.info("Upload one image for each stain and click **Run analysis** to start.")
+    st.info("Upload images and click **Run analysis** to start.")
+
+
+# ------------------ SIDEBAR HISTORY ------------------
+st.sidebar.subheader("History (previous runs)")
+
+if len(st.session_state["history"]) == 0:
+    st.sidebar.caption("No previous runs yet.")
+else:
+    for i, h in enumerate(st.session_state["history"]):
+        st.sidebar.write(f"**Run #{i+1}**")
+        st.sidebar.write(
+            f"Nuclei: {h['nuclei']}, Live: {h['live']}, Dead: {h['dead']}, "
+            f"Live%: {h['live_pct']:.2f}%"
+        )
+        st.sidebar.markdown("---")
