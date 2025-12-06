@@ -196,6 +196,26 @@ with col3:
         show_recommendations(red_file)
 
 
+# ------------------ SYNC CALLBACKS FOR SLIDER <-> INPUT ------------------
+def sync_blue_from_slider():
+    st.session_state["blue_min_area_input"] = int(st.session_state["blue_min_area_slider"])
+
+def sync_blue_from_input():
+    st.session_state["blue_min_area_slider"] = int(st.session_state["blue_min_area_input"])
+
+def sync_green_from_slider():
+    st.session_state["green_min_area_input"] = int(st.session_state["green_min_area_slider"])
+
+def sync_green_from_input():
+    st.session_state["green_min_area_slider"] = int(st.session_state["green_min_area_input"])
+
+def sync_red_from_slider():
+    st.session_state["red_min_area_input"] = int(st.session_state["red_min_area_slider"])
+
+def sync_red_from_input():
+    st.session_state["red_min_area_slider"] = int(st.session_state["red_min_area_input"])
+
+
 # ------------------ SIDEBAR ------------------
 st.sidebar.header("Segmentation parameters")
 
@@ -205,30 +225,71 @@ green_thresh = st.sidebar.slider("Live threshold", 0, 255, 80)
 red_thresh = st.sidebar.slider("Dead threshold", 0, 255, 80)
 
 st.sidebar.subheader("Minimum object size (px)")
-# More realistic slider ranges + exact numeric inputs
-blue_min_area_slider = st.sidebar.slider("DAPI min area (slider)", 10, 500, 40, step=5)
-blue_min_area = st.sidebar.number_input(
-    "DAPI min area (exact)",
-    min_value=1,
-    max_value=3000,
-    value=int(blue_min_area_slider),
-)
 
-green_min_area_slider = st.sidebar.slider("Live min area (slider)", 10, 2000, 150, step=10)
-green_min_area = st.sidebar.number_input(
-    "Live min area (exact)",
-    min_value=1,
-    max_value=5000,
-    value=int(green_min_area_slider),
-)
+# DAPI: slider + small numeric box
+b_col1, b_col2 = st.sidebar.columns([3, 1])
+with b_col1:
+    st.slider(
+        "DAPI min area (slider)",
+        10, 500, 40, step=5,
+        key="blue_min_area_slider",
+        on_change=sync_blue_from_slider,
+    )
+with b_col2:
+    st.number_input(
+        " ",
+        min_value=1,
+        max_value=3000,
+        key="blue_min_area_input",
+        on_change=sync_blue_from_input,
+        label_visibility="collapsed",
+    )
+b_col2.caption("Exact")
 
-red_min_area_slider = st.sidebar.slider("Dead min area (slider)", 10, 2000, 150, step=10)
-red_min_area = st.sidebar.number_input(
-    "Dead min area (exact)",
-    min_value=1,
-    max_value=5000,
-    value=int(red_min_area_slider),
-)
+# Live
+g_col1, g_col2 = st.sidebar.columns([3, 1])
+with g_col1:
+    st.slider(
+        "Live min area (slider)",
+        10, 2000, 150, step=10,
+        key="green_min_area_slider",
+        on_change=sync_green_from_slider,
+    )
+with g_col2:
+    st.number_input(
+        "  ",
+        min_value=1,
+        max_value=5000,
+        key="green_min_area_input",
+        on_change=sync_green_from_input,
+        label_visibility="collapsed",
+    )
+g_col2.caption("Exact")
+
+# Dead
+r_col1, r_col2 = st.sidebar.columns([3, 1])
+with r_col1:
+    st.slider(
+        "Dead min area (slider)",
+        10, 2000, 150, step=10,
+        key="red_min_area_slider",
+        on_change=sync_red_from_slider,
+    )
+with r_col2:
+    st.number_input(
+        "   ",
+        min_value=1,
+        max_value=5000,
+        key="red_min_area_input",
+        on_change=sync_red_from_input,
+        label_visibility="collapsed",
+    )
+r_col2.caption("Exact")
+
+# Pull final values (they are kept in sync)
+blue_min_area = int(st.session_state.get("blue_min_area_slider", 40))
+green_min_area = int(st.session_state.get("green_min_area_slider", 150))
+red_min_area = int(st.session_state.get("red_min_area_slider", 150))
 
 run_button = st.button("2. Run analysis")
 
@@ -305,9 +366,9 @@ st.sidebar.subheader("History")
 if not st.session_state["history"]:
     st.sidebar.caption("No previous runs.")
 else:
-    # history[0] is MOST recent because we used insert(0, ...)
     for i, h in enumerate(st.session_state["history"]):
-        st.sidebar.write(f"**Run #{i+1} (most recent first)**" if i == 0 else f"**Run #{i+1}**")
+        title = f"Run #{i+1} (most recent)" if i == 0 else f"Run #{i+1}"
+        st.sidebar.write(f"**{title}**")
         st.sidebar.write(f"Nuclei: {h['nuclei']}")
         st.sidebar.write(f"Live: {h['live']}")
         st.sidebar.write(f"Dead: {h['dead']}")
