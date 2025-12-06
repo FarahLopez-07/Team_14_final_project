@@ -43,7 +43,6 @@ def remove_scale_bar(rgb):
     Detect and remove:
     1. The scale bar rectangle.
     2. Bright numbers located above OR below the scale bar.
-    Numbers usually appear as small bright connected components.
     """
     h, w, _ = rgb.shape
 
@@ -56,57 +55,53 @@ def remove_scale_bar(rgb):
     cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if len(cnts) == 0:
-        return rgb, None  # no bar found
+        return rgb, None
 
-    # Scale bar = largest bright component
     bar_cnt = max(cnts, key=cv2.contourArea)
     bx, by, bw, bh = cv2.boundingRect(bar_cnt)
 
     clean = rgb.copy()
 
-    # ---- Step 2: remove bar ----
     abs_by = bottom_start + by
     clean[abs_by : abs_by + bh, bx : bx + bw] = 0
 
-    # ---- Step 3: remove text ABOVE the bar (up to 50 px) ----
+    # ---- Remove text ABOVE (up to 50 px) ----
     top_region_y1 = max(0, abs_by - 50)
-    text_region_above = rgb[top_region_y1:abs_by, bx:bx + bw]
-    gray_above = cv2.cvtColor(text_region_above, cv2.COLOR_RGB2GRAY)
-    _, tmask_above = cv2.threshold(gray_above, 180, 255, cv2.THRESH_BINARY)
-    tcnts_above, _ = cv2.findContours(tmask_above, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    text_above = rgb[top_region_y1:abs_by, bx:bx + bw]
+    gray_above = cv2.cvtColor(text_above, cv2.COLOR_RGB2GRAY)
+    _, tmaskA = cv2.threshold(gray_above, 180, 255, cv2.THRESH_BINARY)
+    tcntsA, _ = cv2.findContours(tmaskA, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    for c in tcnts_above:
+    for c in tcntsA:
         tx, ty, tw, th = cv2.boundingRect(c)
-        if th < 40:  # text is small
+        if th < 40:
             clean[top_region_y1 + ty : top_region_y1 + ty + th,
                   bx + tx : bx + tx + tw] = 0
 
-    # ---- Step 4: remove text BELOW the bar (up to 50 px) ----
-    bot_region_y1 = abs_by + bh
-    bot_region_y2 = min(h, abs_by + bh + 50)
-    text_region_below = rgb[bot_region_y1:bot_region_y2, bx:bx + bw]
-    gray_below = cv2.cvtColor(text_region_below, cv2.COLOR_RGB2GRAY)
-    _, tmask_below = cv2.threshold(gray_below, 180, 255, cv2.THRESH_BINARY)
-    tcnts_below, _ = cv2.findContours(tmask_below, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # ---- Remove text BELOW (up to 50 px) ----
+    bot_y1 = abs_by + bh
+    bot_y2 = min(h, abs_by + bh + 50)
+    text_below = rgb[bot_y1:bot_y2, bx:bx + bw]
+    gray_below = cv2.cvtColor(text_below, cv2.COLOR_RGB2GRAY)
+    _, tmaskB = cv2.threshold(gray_below, 180, 255, cv2.THRESH_BINARY)
+    tcntsB, _ = cv2.findContours(tmaskB, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    for c in tcnts_below:
+    for c in tcntsB:
         tx, ty, tw, th = cv2.boundingRect(c)
         if th < 40:
-            clean[bot_region_y1 + ty : bot_region_y1 + ty + th,
+            clean[bot_y1 + ty : bot_y1 + ty + th,
                   bx + tx : bx + tx + tw] = 0
 
     return clean, (bx, abs_by, bw, bh)
 
 
 def count_cells_from_gray(gray_img, threshold, min_area):
-    """Threshold grayscale image and count connected components > min_area."""
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
+            .astype(np.uint8)
 
     _, bin_mask = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
-        bin_mask, connectivity=8
-    )
+    _, labels, stats, _ = cv2.connectedComponentsWithStats(bin_mask, 8)
 
     areas = stats[1:, cv2.CC_STAT_AREA]
     count = int(np.sum(areas >= min_area))
@@ -115,11 +110,12 @@ def count_cells_from_gray(gray_img, threshold, min_area):
 
 
 def recommend_threshold(gray_img):
-    """Use Otsu thresholding for recommending threshold."""
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
+            .astype(np.uint8)
 
-    otsu_val, _ = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    otsu_val, _ = cv2.threshold(gray_img, 0, 255,
+                                cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     if otsu_val < 60:
         condition = "Very clean background"
@@ -134,17 +130,16 @@ def recommend_threshold(gray_img):
 
 
 def recommend_min_area(gray_img, threshold):
-    """Estimate typical cell size from connected components."""
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
+            .astype(np.uint8)
 
     _, mask = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    _, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
 
     areas = stats[1:, cv2.CC_STAT_AREA]
-
     if len(areas) == 0:
-        return 20, "No clear cells detected — try lowering threshold"
+        return 20, "No clear cells — try lower threshold"
 
     median_area = np.median(areas)
     recommended = int(max(10, 0.4 * median_area))
@@ -160,17 +155,14 @@ def recommend_min_area(gray_img, threshold):
 
 
 def process_single_channel(file, threshold, min_area, channel_name):
-    if file is None:
-        return 0, None, None
-
     rgb = load_image(file)
-    clean_rgb, scale_bar_box = remove_scale_bar(rgb)
+    clean_rgb, bar_box = remove_scale_bar(rgb)
     gray = cv2.cvtColor(clean_rgb, cv2.COLOR_RGB2GRAY)
 
-    count, bin_mask = count_cells_from_gray(gray, threshold, min_area)
+    count, mask = count_cells_from_gray(gray, threshold, min_area)
 
     row = {"channel": channel_name, "filename": file.name, "count": count}
-    preview = (file.name, rgb, clean_rgb, bin_mask, scale_bar_box)
+    preview = (file.name, rgb, clean_rgb, mask, bar_box)
 
     return count, row, preview
 
@@ -179,29 +171,28 @@ def process_single_channel(file, threshold, min_area, channel_name):
 st.header("1. Upload images")
 col1, col2, col3 = st.columns(3)
 
-def uploader_block(file, label):
-    if file:
-        img = load_image(file)
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+def show_recommendations(file):
+    img = load_image(file)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-        rec_t, cond_t = recommend_threshold(gray)
-        st.caption(f"{cond_t} — recommended threshold ≈ {rec_t}")
+    t_rec, t_cond = recommend_threshold(gray)
+    st.caption(f"{t_cond} — recommended threshold ≈ {t_rec}")
 
-        rec_area, cond_area = recommend_min_area(gray, rec_t)
-        st.caption(f"{cond_area} — recommended min area ≈ {rec_area} px")
+    a_rec, a_cond = recommend_min_area(gray, t_rec)
+    st.caption(f"{a_cond} — recommended min area ≈ {a_rec} px")
 
 
 with col1:
-    blue_file = st.file_uploader("Blue / DAPI", type=["png", "jpg", "jpeg", "tif", "tiff"])
-    uploader_block(blue_file, "Blue")
+    blue_file = st.file_uploader("Blue / DAPI", ["png","jpg","jpeg","tif","tiff"])
+    if blue_file: show_recommendations(blue_file)
 
 with col2:
-    green_file = st.file_uploader("Green (Live)", type=["png", "jpg", "jpeg", "tif", "tiff"])
-    uploader_block(green_file, "Green")
+    green_file = st.file_uploader("Green (Live)", ["png","jpg","jpeg","tif","tiff"])
+    if green_file: show_recommendations(green_file)
 
 with col3:
-    red_file = st.file_uploader("Red (Dead)", type=["png", "jpg", "jpeg", "tif", "tiff"])
-    uploader_block(red_file, "Red")
+    red_file = st.file_uploader("Red (Dead)", ["png","jpg","jpeg","tif","tiff"])
+    if red_file: show_recommendations(red_file)
 
 
 # ------------------ SIDEBAR ------------------
@@ -223,90 +214,78 @@ run_button = st.button("2. Run analysis")
 # ------------------ RUN ANALYSIS ------------------
 if run_button:
     if not (blue_file and green_file and red_file):
-        st.warning("Upload all 3 images to run analysis.")
+        st.warning("Upload all 3 images.")
     else:
         blue_total, blue_row, blue_preview = process_single_channel(
-            blue_file, blue_thresh, blue_min_area, "DAPI nuclei"
+            blue_file, blue_thresh, blue_min_area, "DAPI"
         )
         green_total, green_row, green_preview = process_single_channel(
-            green_file, green_thresh, green_min_area, "Live cells"
+            green_file, green_thresh, green_min_area, "Live"
         )
         red_total, red_row, red_preview = process_single_channel(
-            red_file, red_thresh, red_min_area, "Dead cells"
+            red_file, red_thresh, red_min_area, "Dead"
         )
 
-        rows = [r for r in [blue_row, green_row, red_row] if r]
-        df = pd.DataFrame(rows)
-
+        df = pd.DataFrame([blue_row, green_row, red_row])
         st.subheader("Per-image counts")
         st.dataframe(df)
 
         total_nuclei = blue_total if blue_total > 0 else green_total + red_total
-
         live_pct = 100 * green_total / total_nuclei if total_nuclei else 0
         dead_pct = 100 * red_total / total_nuclei if total_nuclei else 0
 
-        st.subheader("Total counts")
+        st.subheader("Totals")
         colA, colB, colC, colD = st.columns(4)
-        colA.metric("Nuclei (DAPI)", blue_total)
-        colB.metric("Live cells", green_total)
-        colC.metric("Dead cells", red_total)
+        colA.metric("Nuclei", blue_total)
+        colB.metric("Live", green_total)
+        colC.metric("Dead", red_total)
         colD.metric("Total nuclei", total_nuclei)
 
-        st.subheader("Live/Dead percentages")
+        st.subheader("Live/Dead %")
         col1, col2 = st.columns(2)
         col1.metric("Live %", f"{live_pct:.2f}%")
         col2.metric("Dead %", f"{dead_pct:.2f}%")
 
-        # Save history
         st.session_state["history"].insert(
-            0,
-            {
+            0, {
                 "nuclei": total_nuclei,
                 "live": green_total,
                 "dead": red_total,
                 "live_pct": live_pct,
-                "dead_pct": dead_pct,
-            },
+                "dead_pct": dead_pct
+            }
         )
 
-        # ------------------ PREVIEW ------------------
+        # -------- preview --------
         st.subheader("Segmentation preview")
 
         def show_preview(title, preview):
-            fname, orig, clean, mask, scale_bar = preview
-
+            fname, orig, clean, mask, barbox = preview
             st.markdown(f"### {title} — {fname}")
 
             col1, col2, col3 = st.columns(3)
-            col1.image(orig, caption="Original", use_column_width=True)
-            col2.image(clean, caption="Scale-bar + number removed", use_column_width=True)
-            col3.image(mask, caption="Binary mask", use_column_width=True)
+            col1.image(orig, caption="Original")
+            col2.image(clean, caption="Cleaned (scale bar removed)")
+            col3.image(mask, caption="Binary mask")
 
-            if scale_bar:
-                x, y, w, h = scale_bar
-                st.caption(f"Scale bar removed at x={x}, y={y}, size={w}×{h}")
+            if barbox:
+                x,y,w,h = barbox
+                st.caption(f"Removed scale bar at x={x}, y={y}, size={w}×{h}")
 
-        show_preview("DAPI nuclei", blue_preview)
-        show_preview("Live cells", green_preview)
-        show_preview("Dead cells", red_preview)
-
-else:
-    st.info("Upload all 3 images and click **Run analysis**.")
+        show_preview("DAPI", blue_preview)
+        show_preview("Live", green_preview)
+        show_preview("Dead", red_preview)
 
 
 # ------------------ SIDEBAR HISTORY ------------------
 st.sidebar.subheader("History")
-
-if len(st.session_state["history"]) == 0:
+if not st.session_state["history"]:
     st.sidebar.caption("No previous runs.")
 else:
     for i, h in enumerate(st.session_state["history"]):
         st.sidebar.write(f"**Run #{i+1}**")
-        st.sidebar.write(
-            f"Nuclei: {h['nuclei']}  \n"
-            f"Live: {h['live']}  \n"
-            f"Dead: {h['dead']}  \n"
-            f"Live%: {h['live_pct']:.2f}%"
-        )
+        st.sidebar.write(f"Nuclei: {h['nuclei']}")
+        st.sidebar.write(f"Live: {h['live']}")
+        st.sidebar.write(f"Dead: {h['dead']}")
+        st.sidebar.write(f"Live%: {h['live_pct']:.2f}%")
         st.sidebar.markdown("---")
