@@ -19,7 +19,7 @@ Features:
 - Automatic scale-bar + number removal  
 - Automatic threshold recommendation  
 - Automatic minimum-area recommendation  
-- Per-stain threshold + pixel size controls (slider + exact input)  
+- Per-stain controls (threshold + min area, slider + exact input)  
 - Live/dead percentage  
 - Segmentation preview  
 - Sidebar history (most recent run at top)  
@@ -63,7 +63,7 @@ def remove_scale_bar(rgb):
     clean = rgb.copy()
 
     abs_by = bottom_start + by
-    clean[abs_by : abs_by + bh, bx : bx + bw] = 0
+    clean[abs_by: abs_by + bh, bx: bx + bw] = 0
 
     # remove text ABOVE (up to 50 px)
     top_region_y1 = max(0, abs_by - 50)
@@ -74,8 +74,8 @@ def remove_scale_bar(rgb):
     for c in tcntsA:
         tx, ty, tw, th = cv2.boundingRect(c)
         if th < 40:
-            clean[top_region_y1 + ty : top_region_y1 + ty + th,
-                  bx + tx : bx + tx + tw] = 0
+            clean[top_region_y1 + ty: top_region_y1 + ty + th,
+                  bx + tx: bx + tx + tw] = 0
 
     # remove text BELOW (up to 50 px)
     bot_y1 = abs_by + bh
@@ -87,16 +87,17 @@ def remove_scale_bar(rgb):
     for c in tcntsB:
         tx, ty, tw, th = cv2.boundingRect(c)
         if th < 40:
-            clean[bot_y1 + ty : bot_y1 + ty + th,
-                  bx + tx : bx + tx + tw] = 0
+            clean[bot_y1 + ty: bot_y1 + ty + th,
+                  bx + tx: bx + tx + tw] = 0
 
     return clean, (bx, abs_by, bw, bh)
 
 
 def count_cells_from_gray(gray_img, threshold, min_area):
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
-            .astype(np.uint8)
+        gray_img = cv2.normalize(
+            gray_img, None, 0, 255, cv2.NORM_MINMAX
+        ).astype(np.uint8)
 
     _, bin_mask = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
     _, labels, stats, _ = cv2.connectedComponentsWithStats(bin_mask, 8)
@@ -109,11 +110,13 @@ def count_cells_from_gray(gray_img, threshold, min_area):
 
 def recommend_threshold(gray_img):
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
-            .astype(np.uint8)
+        gray_img = cv2.normalize(
+            gray_img, None, 0, 255, cv2.NORM_MINMAX
+        ).astype(np.uint8)
 
-    otsu_val, _ = cv2.threshold(gray_img, 0, 255,
-                                cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    otsu_val, _ = cv2.threshold(
+        gray_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
 
     if otsu_val < 60:
         condition = "Very clean background"
@@ -129,8 +132,9 @@ def recommend_threshold(gray_img):
 
 def recommend_min_area(gray_img, threshold):
     if gray_img.dtype != np.uint8:
-        gray_img = cv2.normalize(gray_img, None, 0, 255, cv2.NORM_MINMAX)\
-            .astype(np.uint8)
+        gray_img = cv2.normalize(
+            gray_img, None, 0, 255, cv2.NORM_MINMAX
+        ).astype(np.uint8)
 
     _, mask = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
     _, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
@@ -169,6 +173,7 @@ def process_single_channel(file, threshold, min_area, channel_name):
 st.header("1. Upload images")
 col1, col2, col3 = st.columns(3)
 
+
 def show_recommendations(file):
     img = load_image(file)
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -181,63 +186,192 @@ def show_recommendations(file):
 
 
 with col1:
-    blue_file = st.file_uploader("Blue / DAPI", ["png","jpg","jpeg","tif","tiff"])
+    blue_file = st.file_uploader(
+        "Blue / DAPI", ["png", "jpg", "jpeg", "tif", "tiff"]
+    )
     if blue_file:
         show_recommendations(blue_file)
 
 with col2:
-    green_file = st.file_uploader("Green (Live)", ["png","jpg","jpeg","tif","tiff"])
+    green_file = st.file_uploader(
+        "Green (Live)", ["png", "jpg", "jpeg", "tif", "tiff"]
+    )
     if green_file:
         show_recommendations(green_file)
 
 with col3:
-    red_file = st.file_uploader("Red (Dead)", ["png","jpg","jpeg","tif","tiff"])
+    red_file = st.file_uploader(
+        "Red (Dead)", ["png", "jpg", "jpeg", "tif", "tiff"]
+    )
     if red_file:
         show_recommendations(red_file)
 
 
-# ------------------ SYNC CALLBACKS FOR SLIDER <-> INPUT ------------------
+# ------------------ SYNC CALLBACKS ------------------
+# Thresholds
+def sync_blue_th_from_slider():
+    st.session_state["blue_thresh_input"] = int(
+        st.session_state["blue_thresh_slider"]
+    )
+
+
+def sync_blue_th_from_input():
+    st.session_state["blue_thresh_slider"] = int(
+        st.session_state["blue_thresh_input"]
+    )
+
+
+def sync_green_th_from_slider():
+    st.session_state["green_thresh_input"] = int(
+        st.session_state["green_thresh_slider"]
+    )
+
+
+def sync_green_th_from_input():
+    st.session_state["green_thresh_slider"] = int(
+        st.session_state["green_thresh_input"]
+    )
+
+
+def sync_red_th_from_slider():
+    st.session_state["red_thresh_input"] = int(
+        st.session_state["red_thresh_slider"]
+    )
+
+
+def sync_red_th_from_input():
+    st.session_state["red_thresh_slider"] = int(
+        st.session_state["red_thresh_input"]
+    )
+
+
+# Min areas
 def sync_blue_from_slider():
-    st.session_state["blue_min_area_input"] = int(st.session_state["blue_min_area_slider"])
+    st.session_state["blue_min_area_input"] = int(
+        st.session_state["blue_min_area_slider"]
+    )
+
 
 def sync_blue_from_input():
-    st.session_state["blue_min_area_slider"] = int(st.session_state["blue_min_area_input"])
+    st.session_state["blue_min_area_slider"] = int(
+        st.session_state["blue_min_area_input"]
+    )
+
 
 def sync_green_from_slider():
-    st.session_state["green_min_area_input"] = int(st.session_state["green_min_area_slider"])
+    st.session_state["green_min_area_input"] = int(
+        st.session_state["green_min_area_slider"]
+    )
+
 
 def sync_green_from_input():
-    st.session_state["green_min_area_slider"] = int(st.session_state["green_min_area_input"])
+    st.session_state["green_min_area_slider"] = int(
+        st.session_state["green_min_area_input"]
+    )
+
 
 def sync_red_from_slider():
-    st.session_state["red_min_area_input"] = int(st.session_state["red_min_area_slider"])
+    st.session_state["red_min_area_input"] = int(
+        st.session_state["red_min_area_slider"]
+    )
+
 
 def sync_red_from_input():
-    st.session_state["red_min_area_slider"] = int(st.session_state["red_min_area_input"])
+    st.session_state["red_min_area_slider"] = int(
+        st.session_state["red_min_area_input"]
+    )
 
 
 # ------------------ SIDEBAR ------------------
 st.sidebar.header("Segmentation parameters")
 
+# Thresholds (slider + exact)
 st.sidebar.subheader("Thresholds")
-blue_thresh = st.sidebar.slider("DAPI threshold", 0, 255, 80)
-green_thresh = st.sidebar.slider("Live threshold", 0, 255, 80)
-red_thresh = st.sidebar.slider("Dead threshold", 0, 255, 80)
 
+tb1, tb2 = st.sidebar.columns([3, 1])
+with tb1:
+    st.slider(
+        "DAPI threshold (slider)",
+        0,
+        255,
+        80,
+        key="blue_thresh_slider",
+        on_change=sync_blue_th_from_slider,
+    )
+with tb2:
+    st.number_input(
+        " ",
+        min_value=0,
+        max_value=255,
+        key="blue_thresh_input",
+        on_change=sync_blue_th_from_input,
+        label_visibility="collapsed",
+    )
+tb2.caption("Exact")
+
+tg1, tg2 = st.sidebar.columns([3, 1])
+with tg1:
+    st.slider(
+        "Live threshold (slider)",
+        0,
+        255,
+        80,
+        key="green_thresh_slider",
+        on_change=sync_green_th_from_slider,
+    )
+with tg2:
+    st.number_input(
+        "  ",
+        min_value=0,
+        max_value=255,
+        key="green_thresh_input",
+        on_change=sync_green_th_from_input,
+        label_visibility="collapsed",
+    )
+tg2.caption("Exact")
+
+tr1, tr2 = st.sidebar.columns([3, 1])
+with tr1:
+    st.slider(
+        "Dead threshold (slider)",
+        0,
+        255,
+        80,
+        key="red_thresh_slider",
+        on_change=sync_red_th_from_slider,
+    )
+with tr2:
+    st.number_input(
+        "   ",
+        min_value=0,
+        max_value=255,
+        key="red_thresh_input",
+        on_change=sync_red_th_from_input,
+        label_visibility="collapsed",
+    )
+tr2.caption("Exact")
+
+blue_thresh = int(st.session_state.get("blue_thresh_slider", 80))
+green_thresh = int(st.session_state.get("green_thresh_slider", 80))
+red_thresh = int(st.session_state.get("red_thresh_slider", 80))
+
+# Min areas (slider + exact)
 st.sidebar.subheader("Minimum object size (px)")
 
-# DAPI: slider + small numeric box
 b_col1, b_col2 = st.sidebar.columns([3, 1])
 with b_col1:
     st.slider(
         "DAPI min area (slider)",
-        10, 500, 40, step=5,
+        10,
+        500,
+        40,
+        step=5,
         key="blue_min_area_slider",
         on_change=sync_blue_from_slider,
     )
 with b_col2:
     st.number_input(
-        " ",
+        "    ",
         min_value=1,
         max_value=3000,
         key="blue_min_area_input",
@@ -246,18 +380,20 @@ with b_col2:
     )
 b_col2.caption("Exact")
 
-# Live
 g_col1, g_col2 = st.sidebar.columns([3, 1])
 with g_col1:
     st.slider(
         "Live min area (slider)",
-        10, 2000, 150, step=10,
+        10,
+        2000,
+        150,
+        step=10,
         key="green_min_area_slider",
         on_change=sync_green_from_slider,
     )
 with g_col2:
     st.number_input(
-        "  ",
+        "     ",
         min_value=1,
         max_value=5000,
         key="green_min_area_input",
@@ -266,18 +402,20 @@ with g_col2:
     )
 g_col2.caption("Exact")
 
-# Dead
 r_col1, r_col2 = st.sidebar.columns([3, 1])
 with r_col1:
     st.slider(
         "Dead min area (slider)",
-        10, 2000, 150, step=10,
+        10,
+        2000,
+        150,
+        step=10,
         key="red_min_area_slider",
         on_change=sync_red_from_slider,
     )
 with r_col2:
     st.number_input(
-        "   ",
+        "      ",
         min_value=1,
         max_value=5000,
         key="red_min_area_input",
@@ -286,7 +424,6 @@ with r_col2:
     )
 r_col2.caption("Exact")
 
-# Pull final values (they are kept in sync)
 blue_min_area = int(st.session_state.get("blue_min_area_slider", 40))
 green_min_area = int(st.session_state.get("green_min_area_slider", 150))
 red_min_area = int(st.session_state.get("red_min_area_slider", 150))
@@ -329,15 +466,15 @@ if run_button:
         col1.metric("Live %", f"{live_pct:.2f}%")
         col2.metric("Dead %", f"{dead_pct:.2f}%")
 
-        # store most recent run at index 0 (top)
         st.session_state["history"].insert(
-            0, {
+            0,
+            {
                 "nuclei": total_nuclei,
                 "live": green_total,
                 "dead": red_total,
                 "live_pct": live_pct,
-                "dead_pct": dead_pct
-            }
+                "dead_pct": dead_pct,
+            },
         )
 
         # -------- preview --------
@@ -353,7 +490,7 @@ if run_button:
             col3.image(mask, caption="Binary mask")
 
             if barbox:
-                x,y,w,h = barbox
+                x, y, w, h = barbox
                 st.caption(f"Removed scale bar at x={x}, y={y}, size={w}×{h}")
 
         show_preview("DAPI", blue_preview)
@@ -367,10 +504,11 @@ if not st.session_state["history"]:
     st.sidebar.caption("No previous runs.")
 else:
     for i, h in enumerate(st.session_state["history"]):
-        title = f"Run #{i+1} (most recent)" if i == 0 else f"Run #{i+1}"
+        title = "Run #{0} (most recent)".format(i + 1) if i == 0 else f"Run #{i+1}"
         st.sidebar.write(f"**{title}**")
         st.sidebar.write(f"Nuclei: {h['nuclei']}")
         st.sidebar.write(f"Live: {h['live']}")
         st.sidebar.write(f"Dead: {h['dead']}")
         st.sidebar.write(f"Live%: {h['live_pct']:.2f}%")
         st.sidebar.markdown("---")
+
