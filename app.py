@@ -19,10 +19,10 @@ Features:
 - Automatic scale-bar + number removal  
 - Automatic threshold recommendation  
 - Automatic minimum-area recommendation  
-- Per-stain threshold + pixel size controls  
+- Per-stain threshold + pixel size controls (slider + exact input)  
 - Live/dead percentage  
 - Segmentation preview  
-- Sidebar history  
+- Sidebar history (most recent run at top)  
 """
 )
 
@@ -46,7 +46,7 @@ def remove_scale_bar(rgb):
     """
     h, w, _ = rgb.shape
 
-    # ---- Step 1: detect bar in bottom 25% ----
+    # detect bar in bottom 25% of image
     bottom_start = int(h * 0.75)
     bottom_region = rgb[bottom_start:, :]
     gray = cv2.cvtColor(bottom_region, cv2.COLOR_RGB2GRAY)
@@ -65,27 +65,25 @@ def remove_scale_bar(rgb):
     abs_by = bottom_start + by
     clean[abs_by : abs_by + bh, bx : bx + bw] = 0
 
-    # ---- Remove text ABOVE (up to 50 px) ----
+    # remove text ABOVE (up to 50 px)
     top_region_y1 = max(0, abs_by - 50)
     text_above = rgb[top_region_y1:abs_by, bx:bx + bw]
     gray_above = cv2.cvtColor(text_above, cv2.COLOR_RGB2GRAY)
     _, tmaskA = cv2.threshold(gray_above, 180, 255, cv2.THRESH_BINARY)
     tcntsA, _ = cv2.findContours(tmaskA, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     for c in tcntsA:
         tx, ty, tw, th = cv2.boundingRect(c)
         if th < 40:
             clean[top_region_y1 + ty : top_region_y1 + ty + th,
                   bx + tx : bx + tx + tw] = 0
 
-    # ---- Remove text BELOW (up to 50 px) ----
+    # remove text BELOW (up to 50 px)
     bot_y1 = abs_by + bh
     bot_y2 = min(h, abs_by + bh + 50)
     text_below = rgb[bot_y1:bot_y2, bx:bx + bw]
     gray_below = cv2.cvtColor(text_below, cv2.COLOR_RGB2GRAY)
     _, tmaskB = cv2.threshold(gray_below, 180, 255, cv2.THRESH_BINARY)
     tcntsB, _ = cv2.findContours(tmaskB, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     for c in tcntsB:
         tx, ty, tw, th = cv2.boundingRect(c)
         if th < 40:
@@ -184,15 +182,18 @@ def show_recommendations(file):
 
 with col1:
     blue_file = st.file_uploader("Blue / DAPI", ["png","jpg","jpeg","tif","tiff"])
-    if blue_file: show_recommendations(blue_file)
+    if blue_file:
+        show_recommendations(blue_file)
 
 with col2:
     green_file = st.file_uploader("Green (Live)", ["png","jpg","jpeg","tif","tiff"])
-    if green_file: show_recommendations(green_file)
+    if green_file:
+        show_recommendations(green_file)
 
 with col3:
     red_file = st.file_uploader("Red (Dead)", ["png","jpg","jpeg","tif","tiff"])
-    if red_file: show_recommendations(red_file)
+    if red_file:
+        show_recommendations(red_file)
 
 
 # ------------------ SIDEBAR ------------------
@@ -204,9 +205,30 @@ green_thresh = st.sidebar.slider("Live threshold", 0, 255, 80)
 red_thresh = st.sidebar.slider("Dead threshold", 0, 255, 80)
 
 st.sidebar.subheader("Minimum object size (px)")
-blue_min_area = st.sidebar.slider("DAPI min area", 10, 2000, 30)
-green_min_area = st.sidebar.slider("Live min area", 10, 5000, 100)
-red_min_area = st.sidebar.slider("Dead min area", 10, 5000, 100)
+# More realistic slider ranges + exact numeric inputs
+blue_min_area_slider = st.sidebar.slider("DAPI min area (slider)", 10, 500, 40, step=5)
+blue_min_area = st.sidebar.number_input(
+    "DAPI min area (exact)",
+    min_value=1,
+    max_value=3000,
+    value=int(blue_min_area_slider),
+)
+
+green_min_area_slider = st.sidebar.slider("Live min area (slider)", 10, 2000, 150, step=10)
+green_min_area = st.sidebar.number_input(
+    "Live min area (exact)",
+    min_value=1,
+    max_value=5000,
+    value=int(green_min_area_slider),
+)
+
+red_min_area_slider = st.sidebar.slider("Dead min area (slider)", 10, 2000, 150, step=10)
+red_min_area = st.sidebar.number_input(
+    "Dead min area (exact)",
+    min_value=1,
+    max_value=5000,
+    value=int(red_min_area_slider),
+)
 
 run_button = st.button("2. Run analysis")
 
@@ -246,6 +268,7 @@ if run_button:
         col1.metric("Live %", f"{live_pct:.2f}%")
         col2.metric("Dead %", f"{dead_pct:.2f}%")
 
+        # store most recent run at index 0 (top)
         st.session_state["history"].insert(
             0, {
                 "nuclei": total_nuclei,
@@ -265,7 +288,7 @@ if run_button:
 
             col1, col2, col3 = st.columns(3)
             col1.image(orig, caption="Original")
-            col2.image(clean, caption="Cleaned (scale bar removed)")
+            col2.image(clean, caption="Cleaned (scale bar + numbers removed)")
             col3.image(mask, caption="Binary mask")
 
             if barbox:
@@ -282,8 +305,9 @@ st.sidebar.subheader("History")
 if not st.session_state["history"]:
     st.sidebar.caption("No previous runs.")
 else:
+    # history[0] is MOST recent because we used insert(0, ...)
     for i, h in enumerate(st.session_state["history"]):
-        st.sidebar.write(f"**Run #{i+1}**")
+        st.sidebar.write(f"**Run #{i+1} (most recent first)**" if i == 0 else f"**Run #{i+1}**")
         st.sidebar.write(f"Nuclei: {h['nuclei']}")
         st.sidebar.write(f"Live: {h['live']}")
         st.sidebar.write(f"Dead: {h['dead']}")
