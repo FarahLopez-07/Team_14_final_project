@@ -12,8 +12,8 @@ An easy-to-use fluorescent cell counter and viability calculator for blue, green
 
 ### Running the Application
 1. Open GitHub Codespace
-2. Install dependencies using this command in the terminal: `pip install -r requirements.txt`
-3. Run Streamlit by using this command in the terminal: `streamlit run app.py --server.address 0.0.0.0 --server.port 8501`
+2. Install dependencies with `pip install -r requirements.txt` in the terminal
+3. Run Streamlit with `streamlit run app.py --server.address 0.0.0.0 --server.port 8501` in the terminal
 4. Open the app via Codespace UI at port 8501 or by using the URL provided in the terminal
 
 ## Usage Guide
