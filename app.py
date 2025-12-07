@@ -253,11 +253,10 @@ def sync_blue_from_slider():
 
 
 def sync_blue_from_input():
-    # Clamp to slider range: 10–500
-    val = int(st.session_state["blue_min_area_input"])
-    val = max(10, min(500, val))
-    st.session_state["blue_min_area_input"] = val
-    st.session_state["blue_min_area_slider"] = val
+    # value is already validated by number_input (10–500)
+    st.session_state["blue_min_area_slider"] = int(
+        st.session_state["blue_min_area_input"]
+    )
 
 
 def sync_green_from_slider():
@@ -267,11 +266,10 @@ def sync_green_from_slider():
 
 
 def sync_green_from_input():
-    # Clamp to slider range: 10–2000
-    val = int(st.session_state["green_min_area_input"])
-    val = max(10, min(2000, val))
-    st.session_state["green_min_area_input"] = val
-    st.session_state["green_min_area_slider"] = val
+    # value is already validated by number_input (10–2000)
+    st.session_state["green_min_area_slider"] = int(
+        st.session_state["green_min_area_input"]
+    )
 
 
 def sync_red_from_slider():
@@ -281,11 +279,10 @@ def sync_red_from_slider():
 
 
 def sync_red_from_input():
-    # Clamp to slider range: 10–2000
-    val = int(st.session_state["red_min_area_input"])
-    val = max(10, min(2000, val))
-    st.session_state["red_min_area_input"] = val
-    st.session_state["red_min_area_slider"] = val
+    # value is already validated by number_input (10–2000)
+    st.session_state["red_min_area_slider"] = int(
+        st.session_state["red_min_area_input"]
+    )
 
 
 # ------------------ SIDEBAR ------------------
@@ -378,8 +375,8 @@ with b_col1:
 with b_col2:
     st.number_input(
         "    ",
-        min_value=1,
-        max_value=3000,
+        min_value=10,       # match slider min
+        max_value=500,      # match slider max
         key="blue_min_area_input",
         on_change=sync_blue_from_input,
         label_visibility="collapsed",
@@ -400,8 +397,8 @@ with g_col1:
 with g_col2:
     st.number_input(
         "     ",
-        min_value=1,
-        max_value=5000,
+        min_value=10,       # match slider min
+        max_value=2000,     # match slider max
         key="green_min_area_input",
         on_change=sync_green_from_input,
         label_visibility="collapsed",
@@ -422,8 +419,8 @@ with r_col1:
 with r_col2:
     st.number_input(
         "      ",
-        min_value=1,
-        max_value=5000,
+        min_value=10,       # match slider min
+        max_value=2000,     # match slider max
         key="red_min_area_input",
         on_change=sync_red_from_input,
         label_visibility="collapsed",
