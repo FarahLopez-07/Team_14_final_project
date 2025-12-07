@@ -1,6 +1,5 @@
 # Project Title
-
-[One-sentence summary of your project] => (flow A - cell counter/fluorescence analyzer)
+An easy-to-use fluorescent cell counter and viability calculator for blue, green, and red stains with customizable recognition thresholds, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
 
 ## Biomedical Context
 
@@ -15,17 +14,15 @@
 1. Open GitHub Codespace
 2. Install dependencies using this command in the terminal: `pip install -r requirements.txt`
 3. Run Streamlit by using this command in the terminal: `streamlit run app.py --server.address 0.0.0.0 --server.port 8501`
-4. Open the app via Codespace UI or using the URL provided in the terminal
-
-[Exact command(s) to run the app/game, e.g., `pip install streamlit` then `streamlit run app.py` or `DISPLAY=:0 love .`]
+4. Open the app via Codespace UI at port 8501 or by using the URL provided in the terminal
 
 ## Usage Guide
 
 [Step-by-step explanation with screenshots or text]
 
-- **Step 1:** [Description]
-- **Step 2:** [Description]
-- **Step 3:** [Description]
+- **Step 1:** Input cell stain images
+- **Step 2:** Set color and minumum area thresholds for cell recognition
+- **Step 3:** Click "run analyses" and obtain results
 
 ## Data Description (optional)
 
