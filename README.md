@@ -1,5 +1,5 @@
 # Project Title
-An easy-to-use fluorescent cell counter and viability calculator for blue, green, and red stains with customizable recognition thresholds, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
+An easy-to-use fluorescent cell counter and viability calculator for blue, green, and red stains with customizable recognition thresholds, segmentation previews, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
 
 ## Biomedical Context
 
