@@ -22,7 +22,7 @@ An easy-to-use fluorescent cell counter and viability calculator for blue, green
 
 - **Step 1:** Input cell stain images
 - **Step 2:** Set color and minumum area thresholds for cell recognition
-- **Step 3:** Click "run analyses" and obtain results
+- **Step 3:** Click "Run Analyses" and obtain results
 
 ## Data Description (optional)
 
