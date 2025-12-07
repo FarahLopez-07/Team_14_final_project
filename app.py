@@ -18,22 +18,20 @@ Upload one fluorescence image per channel:
 This app includes:
 
 - Scale-bar + number removal  
-- Threshold & area controls (slider + exact input, always synced)  
-- Recommended parameters  
+- Threshold & area controls (slider + exact, fully synced)  
+- Parameter recommendations  
 - Live/dead percentages  
-- History (most recent at top)  
+- Segmentation preview  
+- Run history (most recent first)  
 """
 )
 
-# ------------------ SESSION STATE INIT ------------------
-
+# ------------------ SESSION DEFAULTS ------------------
 defaults = {
-    # Thresholds
     "blue_thresh": 80,
     "green_thresh": 80,
     "red_thresh": 80,
 
-    # Areas
     "blue_min_area": 40,
     "green_min_area": 150,
     "red_min_area": 150,
@@ -46,11 +44,11 @@ for key, val in defaults.items():
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
-# ------------------ UTILS ------------------
 
+# ------------------ UTILITIES ------------------
 def load_image(uploaded_file):
-    img = Image.open(uploaded_file).convert("RGB")
-    return np.array(img)
+    return np.array(Image.open(uploaded_file).convert("RGB"))
+
 
 def remove_scale_bar(rgb):
     h, w, _ = rgb.shape
@@ -60,7 +58,6 @@ def remove_scale_bar(rgb):
 
     _, mask = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
     cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     if len(cnts) == 0:
         return rgb, None
 
@@ -69,36 +66,30 @@ def remove_scale_bar(rgb):
 
     clean = rgb.copy()
     abs_y = bottom + by
+    clean[abs_y:abs_y + bh, bx:bx + bw] = 0  # remove bar
 
-    clean[abs_y:abs_y+bh, bx:bx+bw] = 0  # remove bar
+    # remove numbers above/below
+    def remove_text_region(y1, y2):
+        region = rgb[y1:y2, bx:bx + bw]
+        gray_region = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY)
+        _, tm = cv2.threshold(gray_region, 180, 255, cv2.THRESH_BINARY)
+        cnts_txt, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in cnts_txt:
+            tx, ty, tw, th = cv2.boundingRect(c)
+            if th < 40:
+                clean[y1 + ty: y1 + ty + th, bx + tx: bx + tx + tw] = 0
 
-    # remove numbers above & below
-    # above region
-    top_y1 = max(0, abs_y - 50)
-    above = rgb[top_y1:abs_y, bx:bx+bw]
-    gray_above = cv2.cvtColor(above, cv2.COLOR_RGB2GRAY)
-    _, mA = cv2.threshold(gray_above, 180, 255, cv2.THRESH_BINARY)
-    cntA, _ = cv2.findContours(mA, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # above
+    y1 = max(0, abs_y - 50)
+    remove_text_region(y1, abs_y)
 
-    for c in cntA:
-        tx, ty, tw, th = cv2.boundingRect(c)
-        if th < 40:
-            clean[top_y1+ty: top_y1+ty+th, bx+tx: bx+tx+tw] = 0
-
-    # below region
-    bot_y1 = abs_y + bh
-    bot_y2 = min(h, abs_y + bh + 50)
-    below = rgb[bot_y1:bot_y2, bx:bx+bw]
-    gray_below = cv2.cvtColor(below, cv2.COLOR_RGB2GRAY)
-    _, mB = cv2.threshold(gray_below, 180, 255, cv2.THRESH_BINARY)
-    cntB, _ = cv2.findContours(mB, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    for c in cntB:
-        tx, ty, tw, th = cv2.boundingRect(c)
-        if th < 40:
-            clean[bot_y1+ty: bot_y1+ty+th, bx+tx: bx+tx+tw] = 0
+    # below
+    y1 = abs_y + bh
+    y2 = min(h, abs_y + bh + 50)
+    remove_text_region(y1, y2)
 
     return clean, (bx, abs_y, bw, bh)
+
 
 def count_cells(gray, thresh, min_area):
     if gray.dtype != np.uint8:
@@ -108,9 +99,8 @@ def count_cells(gray, thresh, min_area):
     _, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
 
     areas = stats[1:, cv2.CC_STAT_AREA]
-    count = int(np.sum(areas >= min_area))
+    return int(np.sum(areas >= min_area)), mask
 
-    return count, mask
 
 def recommend_threshold(gray):
     if gray.dtype != np.uint8:
@@ -125,9 +115,10 @@ def recommend_threshold(gray):
     elif otsu < 140:
         cond = "Slightly noisy background"
     else:
-        cond = "Uneven/bright background"
+        cond = "Uneven background"
 
     return int(otsu), cond
+
 
 def recommend_area(gray, threshold):
     if gray.dtype != np.uint8:
@@ -137,17 +128,16 @@ def recommend_area(gray, threshold):
     _, _, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
 
     areas = stats[1:, cv2.CC_STAT_AREA]
-
     if len(areas) == 0:
-        return 20, "No clear objects"
+        return 20, "No detected cells"
 
     med = np.median(areas)
-    rec = int(max(10, 0.4 * med))
+    rec = int(max(10, med * 0.4))
 
     if med < 60:
         cond = "Cells appear small"
     elif med < 150:
-        cond = "Cells appear medium-sized"
+        cond = "Cells appear medium"
     else:
         cond = "Cells appear large"
 
@@ -155,13 +145,11 @@ def recommend_area(gray, threshold):
 
 
 # ------------------ UPLOAD SECTION ------------------
-
 st.header("1. Upload images")
-
 c1, c2, c3 = st.columns(3)
 
 with c1:
-    blue_file = st.file_uploader("Blue (DAPI)", ["png","jpg","jpeg","tif","tiff"])
+    blue_file = st.file_uploader("Blue (DAPI)", ["png", "jpg", "jpeg", "tif", "tiff"])
     if blue_file:
         g = cv2.cvtColor(load_image(blue_file), cv2.COLOR_RGB2GRAY)
         t, tc = recommend_threshold(g)
@@ -188,72 +176,53 @@ with c3:
         st.caption(f"{ac} — recommended area ≈ {a}px")
 
 
-# ------------------ SYNCHRONIZED CONTROLS ------------------
-
+# ------------------ FULLY SYNCED CONTROLS ------------------
 st.sidebar.header("Segmentation Parameters")
 
+def synced_pair(label, key, minv, maxv, step):
+    colA, colB = st.sidebar.columns([3, 1])
 
-### FUNCTION: generic sync for slider & input
-def slider_input_pair(label, key_name, minv, maxv, step, sidebar):
-    """
-    Creates a synced slider + exact number box.
-    key_name is the session_state variable that holds the TRUE value.
-    """
+    with colA:
+        st.slider(
+            f"{label} (slider)", 
+            minv, maxv,
+            st.session_state[key],
+            step=step,
+            key=f"{key}_slider_internal",
+            on_change=lambda: st.session_state.update({key: st.session_state[f"{key}_slider_internal"]})
+        )
 
-    with sidebar:
-        colA, colB = st.columns([3, 1])
+    with colB:
+        st.number_input(
+            " ",
+            minv, maxv,
+            value=st.session_state[key],
+            key=f"{key}_input_internal",
+            label_visibility="collapsed",
+            on_change=lambda: st.session_state.update({key: st.session_state[f"{key}_input_internal"]})
+        )
+        colB.caption("Exact")
 
-        with colA:
-            slider_val = st.slider(
-                f"{label} (slider)",
-                minv, maxv,
-                st.session_state[key_name],
-                step=step,
-                key=f"{key_name}_slider",
-            )
+    # ensure the slider and input mirror the true variable
+    st.session_state[f"{key}_slider_internal"] = st.session_state[key]
+    st.session_state[f"{key}_input_internal"] = st.session_state[key]
 
-        with colB:
-            num_val = st.number_input(
-                " ",
-                min_value=minv,
-                max_value=maxv,
-                value=st.session_state[key_name],
-                step=1,
-                key=f"{key_name}_input",
-                label_visibility="collapsed",
-            )
-            colB.caption("Exact")
-
-        # sync both directions
-        if slider_val != st.session_state[key_name]:
-            st.session_state[key_name] = slider_val
-        if num_val != st.session_state[key_name]:
-            st.session_state[key_name] = num_val
-
-    return st.session_state[key_name]
+    return st.session_state[key]
 
 
-### THRESHOLDS
 st.sidebar.subheader("Thresholds")
+blue_thresh = synced_pair("DAPI threshold", "blue_thresh", 0, 255, 1)
+green_thresh = synced_pair("Live threshold", "green_thresh", 0, 255, 1)
+red_thresh = synced_pair("Dead threshold", "red_thresh", 0, 255, 1)
 
-blue_thresh = slider_input_pair("DAPI threshold", "blue_thresh", 0, 255, 1, st.sidebar)
-green_thresh = slider_input_pair("Live threshold", "green_thresh", 0, 255, 1, st.sidebar)
-red_thresh = slider_input_pair("Dead threshold", "red_thresh", 0, 255, 1, st.sidebar)
-
-### AREAS
-st.sidebar.subheader("Minimum Object Size (pixels)")
-
-blue_min_area = slider_input_pair("DAPI min area", "blue_min_area", 10, 500, 5, st.sidebar)
-green_min_area = slider_input_pair("Live min area", "green_min_area", 10, 2000, 10, st.sidebar)
-red_min_area = slider_input_pair("Dead min area", "red_min_area", 10, 2000, 10, st.sidebar)
+st.sidebar.subheader("Minimum Object Size (px)")
+blue_min_area = synced_pair("DAPI min area", "blue_min_area", 10, 500, 5)
+green_min_area = synced_pair("Live min area", "green_min_area", 10, 2000, 10)
+red_min_area = synced_pair("Dead min area", "red_min_area", 10, 2000, 10)
 
 
-# ------------------ ANALYSIS BUTTON ------------------
-
+# ------------------ RUN ANALYSIS ------------------
 run_button = st.button("2. Run analysis")
-
-
-# ------------------ MAIN ANALYSIS ------------------
 
 if run_button:
 
@@ -261,33 +230,29 @@ if run_button:
         st.warning("Upload all 3 images first.")
         st.stop()
 
-    def process(file, thresh, area, label):
+    def process(file, thresh, area):
         rgb = load_image(file)
         clean, bar = remove_scale_bar(rgb)
         gray = cv2.cvtColor(clean, cv2.COLOR_RGB2GRAY)
         count, mask = count_cells(gray, thresh, area)
         return count, (file.name, rgb, clean, mask, bar)
 
-    blue_count, blue_prev = process(blue_file, blue_thresh, blue_min_area, "DAPI")
-    green_count, green_prev = process(green_file, green_thresh, green_min_area, "Live")
-    red_count, red_prev = process(red_file, red_thresh, red_min_area, "Dead")
+    blue_count, blue_prev = process(blue_file, blue_thresh, blue_min_area)
+    green_count, green_prev = process(green_file, green_thresh, green_min_area)
+    red_count, red_prev = process(red_file, red_thresh, red_min_area)
 
     total_nuclei = blue_count if blue_count > 0 else (green_count + red_count)
-
     live_pct = 100 * green_count / total_nuclei if total_nuclei else 0
     dead_pct = 100 * red_count / total_nuclei if total_nuclei else 0
 
-    # history
-    st.session_state["history"].insert(
-        0,
-        dict(
-            nuclei=total_nuclei,
-            live=green_count,
-            dead=red_count,
-            live_pct=live_pct,
-            dead_pct=dead_pct,
-        )
-    )
+    # save history
+    st.session_state["history"].insert(0, dict(
+        nuclei=total_nuclei,
+        live=green_count,
+        dead=red_count,
+        live_pct=live_pct,
+        dead_pct=dead_pct,
+    ))
 
     # results
     st.subheader("Counts")
@@ -305,16 +270,16 @@ if run_button:
     # previews
     st.subheader("Segmentation Preview")
 
-    def show(title, data):
-        fname, orig, clean, mask, bar = data
+    def show(title, p):
+        fname, orig, clean, mask, bar = p
         st.markdown(f"### {title} — {fname}")
         a, b, c = st.columns(3)
         a.image(orig, caption="Original")
         b.image(clean, caption="Cleaned")
-        c.image(mask, caption="Binary Mask")
+        c.image(mask, caption="Binary")
         if bar:
             x, y, w, h = bar
-            st.caption(f"Removed scale bar at: x={x}, y={y}, size={w}×{h}")
+            st.caption(f"Scale bar removed from x={x}, y={y}, size={w}×{h}")
 
     show("DAPI", blue_prev)
     show("Live", green_prev)
@@ -322,8 +287,8 @@ if run_button:
 
 
 # ------------------ HISTORY ------------------
-
 st.sidebar.subheader("History (Newest First)")
+
 if len(st.session_state["history"]) == 0:
     st.sidebar.caption("No runs yet.")
 else:
@@ -335,3 +300,4 @@ else:
         st.sidebar.write(f"Live %: {h['live_pct']:.2f}%")
         st.sidebar.write(f"Dead %: {h['dead_pct']:.2f}%")
         st.sidebar.markdown("---")
+
