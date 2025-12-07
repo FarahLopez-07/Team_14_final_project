@@ -253,9 +253,11 @@ def sync_blue_from_slider():
 
 
 def sync_blue_from_input():
-    st.session_state["blue_min_area_slider"] = int(
-        st.session_state["blue_min_area_input"]
-    )
+    # Clamp to slider range: 10–500
+    val = int(st.session_state["blue_min_area_input"])
+    val = max(10, min(500, val))
+    st.session_state["blue_min_area_input"] = val
+    st.session_state["blue_min_area_slider"] = val
 
 
 def sync_green_from_slider():
@@ -265,9 +267,11 @@ def sync_green_from_slider():
 
 
 def sync_green_from_input():
-    st.session_state["green_min_area_slider"] = int(
-        st.session_state["green_min_area_input"]
-    )
+    # Clamp to slider range: 10–2000
+    val = int(st.session_state["green_min_area_input"])
+    val = max(10, min(2000, val))
+    st.session_state["green_min_area_input"] = val
+    st.session_state["green_min_area_slider"] = val
 
 
 def sync_red_from_slider():
@@ -277,9 +281,11 @@ def sync_red_from_slider():
 
 
 def sync_red_from_input():
-    st.session_state["red_min_area_slider"] = int(
-        st.session_state["red_min_area_input"]
-    )
+    # Clamp to slider range: 10–2000
+    val = int(st.session_state["red_min_area_input"])
+    val = max(10, min(2000, val))
+    st.session_state["red_min_area_input"] = val
+    st.session_state["red_min_area_slider"] = val
 
 
 # ------------------ SIDEBAR ------------------
@@ -510,4 +516,4 @@ else:
         st.sidebar.write(f"Live: {h['live']}")
         st.sidebar.write(f"Dead: {h['dead']}")
         st.sidebar.write(f"Live%: {h['live_pct']:.2f}%")
-        st.sidebar.markdown("---") 
+        st.sidebar.markdown("---")
