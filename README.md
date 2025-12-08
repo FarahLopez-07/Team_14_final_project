@@ -71,12 +71,12 @@ The sample fluorescence images used for testing (DAPI, Live and Dead channels) w
 Users may upload any of the following file fypes: **.png, .jpg, .jpeg, .tif, .tiff.**
 
 ## Project Structure
-├─ app.py                      # Main Streamlit application
-├─ requirements.txt            # Python dependencies
-├─ README.md                   # Project documentation
-├─ data/                       # Optional folder containing example images
-├─ .devcontainer/              # GitHub Codespaces environment files
-└─ utils/                      # Optional helper modules (if added)
+- app.py: Main Streamlit application
+- requirements.txt: Python dependencies
+- README.md: Project documentation
+- data/: Optional folder containing example images
+- .devcontainer/: GitHub Codespaces environment files
+- utils/: Optional helper modules (if added)
 
 Key Components
 - app.py: Image upload, preprocessing, segmentation, threshold recommendations and output visualization.
