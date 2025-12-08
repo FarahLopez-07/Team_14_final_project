@@ -38,6 +38,7 @@ This app provides a fast, automated, and interactive way to calculate cell count
 - Set color and minumum area thresholds for cell recognition
 - Use the sidebar sliders or exact numeric inputs
 - Recommendations automatically appear after image upload
+  
 <img width="100" height="530" alt="Screen Shot 2025-12-08 at 2 39 34 PM" src="https://github.com/user-attachments/assets/612cfe07-3bd9-4a56-b85b-22f0137f238c" />
 
 **Step 3:** 
@@ -47,6 +48,7 @@ This app provides a fast, automated, and interactive way to calculate cell count
     + Total nuclei, live cells, and dead cells
     + Live/Dead percentages
     + Segmentation previews (origina -> cleaned -> binary mask)
+  
 <img width="600" height="300" alt="Screen Shot 2025-12-08 at 2 37 18 PM" src="https://github.com/user-attachments/assets/98b3f7ee-3223-4ab3-8229-4272deedb2c7" />
 
 <img width="600" height="300" alt="Screen Shot 2025-12-08 at 2 37 50 PM" src="https://github.com/user-attachments/assets/1cdc1c4d-4c0d-422c-8e6f-4fa7a26fa9b9" />
