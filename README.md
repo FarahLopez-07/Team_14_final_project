@@ -33,12 +33,12 @@ This app provides a fast, automated, and interactive way to calculate cell count
     + Green (Live)
     + Red (Dead)
       
-<img width="1248" height="704" alt="Screen Shot 2025-12-08 at 2 27 42 PM" src="https://github.com/user-attachments/assets/b0cb2ad4-9f3a-460d-9de9-f832d143f861" />
+<img width="800" height="500" alt="Screen Shot 2025-12-08 at 2 27 42 PM" src="https://github.com/user-attachments/assets/b0cb2ad4-9f3a-460d-9de9-f832d143f861" />
 **Step 2:** 
 - Set color and minumum area thresholds for cell recognition
 - Use the sidebar sliders or exact numeric inputs
 - Recommendations automatically appear after image upload
-<img width="232" height="724" alt="Screen Shot 2025-12-08 at 2 39 34 PM" src="https://github.com/user-attachments/assets/612cfe07-3bd9-4a56-b85b-22f0137f238c" />
+<img width="100" height="530" alt="Screen Shot 2025-12-08 at 2 39 34 PM" src="https://github.com/user-attachments/assets/612cfe07-3bd9-4a56-b85b-22f0137f238c" />
 
 **Step 3:** 
 - Click "Run Analysis" and obtain results
@@ -47,9 +47,9 @@ This app provides a fast, automated, and interactive way to calculate cell count
     + Total nuclei, live cells, and dead cells
     + Live/Dead percentages
     + Segmentation previews (origina -> cleaned -> binary mask)
-<img width="885" height="557" alt="Screen Shot 2025-12-08 at 2 37 18 PM" src="https://github.com/user-attachments/assets/98b3f7ee-3223-4ab3-8229-4272deedb2c7" />
+<img width="600" height="300" alt="Screen Shot 2025-12-08 at 2 37 18 PM" src="https://github.com/user-attachments/assets/98b3f7ee-3223-4ab3-8229-4272deedb2c7" />
 
-<img width="885" height="555" alt="Screen Shot 2025-12-08 at 2 37 50 PM" src="https://github.com/user-attachments/assets/1cdc1c4d-4c0d-422c-8e6f-4fa7a26fa9b9" />
+<img width="600" height="300" alt="Screen Shot 2025-12-08 at 2 37 50 PM" src="https://github.com/user-attachments/assets/1cdc1c4d-4c0d-422c-8e6f-4fa7a26fa9b9" />
 
 ## Data Description 
 This app processes three-channel fluorescence microscopy datasets in which each cannel is acquired and saves as a separate image file. The required inputs include: 
@@ -68,12 +68,12 @@ The sample fluorescence images used for testing (DAPI, Live and Dead channels) w
 Users may upload any of the following file fypes: **.png, .jpg, .jpeg, .tif, .tiff.**
 
 ## Project Structure
-├── app.py                      # Main Streamlit application
-├── requirements.txt            # Python dependencies
-├── README.md                   # Project documentation
-├── data/                       # Optional folder containing example images
-├── .devcontainer/              # GitHub Codespaces environment files
-└── utils/                      # Optional helper modules (if added)
+├─ app.py                      # Main Streamlit application
+├─ requirements.txt            # Python dependencies
+├─ README.md                   # Project documentation
+├─ data/                       # Optional folder containing example images
+├─ .devcontainer/              # GitHub Codespaces environment files
+└─ utils/                      # Optional helper modules (if added)
 
 Key Components
 - app.py: Image upload, preprocessing, segmentation, threshold recommendations and output visualization.
