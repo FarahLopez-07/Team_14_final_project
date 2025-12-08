@@ -34,6 +34,7 @@ This app provides a fast, automated, and interactive way to calculate cell count
     + Red (Dead)
       
 <img width="800" height="500" alt="Screen Shot 2025-12-08 at 2 27 42 PM" src="https://github.com/user-attachments/assets/b0cb2ad4-9f3a-460d-9de9-f832d143f861" />
+
 **Step 2:** 
 - Set color and minumum area thresholds for cell recognition
 - Use the sidebar sliders or exact numeric inputs
@@ -63,7 +64,7 @@ The images used during testing consisted of:
 - ~400-500 DAPI-labeled nuclei
 - High-density green fluorescence indicaiting live cells
 - Low-intesnity red fluorescence representing dead cells
-- 
+  
 ### Data Source
 The sample fluorescence images used for testing (DAPI, Live and Dead channels) were collected from previous biomedical engineering cell culture labs at the University of Florida involving mammalian cell culture and standard LIVE/DEAD viability staining (Calcein-AM and EthD-1). These images are intended exclusively for eduational use and should not be redistributed without instructor permission. 
 
