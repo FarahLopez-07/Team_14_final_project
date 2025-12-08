@@ -1,14 +1,15 @@
 # Project Title
-An easy-to-use fluorescent cell counter and viability calculator for blue, green, and red stains with customizable recognition thresholds, segmentation previews, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
+  An easy-to-use fluorescent cell counter and viability calculator for blue (DAPI), green (live), and red (deadO) stains. This app features customizable recognition thresholds, segmentation previews, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
 
 ## Biomedical Context
+  This tool is designed for students, laboratory trainees, and researchers learning how to quantify cell viability using flrourescence microscopy.
+  In many cell-culture experiments, viability is assessed using multicolor stains such as DAPI for nuclei, Calcein-AM or GFP for live cells, and Ethidium Homordimer/ PI (EthD-1) for dead cells. Manually counting cells is time-consuming and prone to inconsistencies. 
+  This app provides a fast, automated, and interactive way to calculate cell counta and viability percentage tool in the biomedical engineering courses and a practical early-stage analysis tool for imaging-based experiments. 
 
-[Who/what this app or game is for]
 
 ## Quick Start Instructions
 
 ### Opening the Repository in GitHub Codespaces
-
 
 ### Running the Application
 1. Open GitHub Codespace
