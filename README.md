@@ -82,5 +82,5 @@ Key Components
 - app.py: Image upload, preprocessing, segmentation, threshold recommendations and output visualization.
 - requirements.txt: Ensures reproducible environment setup.
 - data/: Sample text images (if included).
-- utils/: For helper functions (optional) 
+- utils/: For helper functions (optional).
 
