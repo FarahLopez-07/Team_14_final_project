@@ -1,4 +1,4 @@
-# Project Title
+# Hoechst & L/D Cell Counter App
 An easy-to-use fluorescent cell counter and viability calculator for blue (DAPI), green (live), and red (dead) stains featuring customizable recognition thresholds, segmentation previews, algorithm-supported threshold recommendations, live/dead percentages, and automatic scale-bar removal.
 
 ## Biomedical Context
